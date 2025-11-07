@@ -3,7 +3,6 @@ google-generativeai
 streamlit-mic-recorder
 python-dotenv
 pandas
-=======
 streamlit
 google-generativeai
 streamlit-mic-recorder
