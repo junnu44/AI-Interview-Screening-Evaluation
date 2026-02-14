@@ -53,24 +53,80 @@ const CameraProctor = ({ onDisqualify, onViolation, sessionId }) => {
         if (video.readyState !== 4) return;
 
         try {
+            // Detect faces with landmarks for gaze tracking
             const detections = await faceapi.detectAllFaces(
                 video,
                 new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 })
-            );
+            ).withFaceLandmarks(true); // Enable landmarks
 
             const faces = detections.length;
             setFaceCount(faces);
 
+            let currentWarning = null;
+            let violationType = null;
+
             // Check for multiple faces
             if (faces > 1) {
+                currentWarning = "Multiple Faces Detected";
+                violationType = "multiple_faces";
+            } else if (faces === 0) {
+                // currentWarning = "No Face Detected"; // Optional: Warning for no face
+                // violationType = "no_face";
+            } else {
+                // Single face - check gaze direction
+                const landmarks = detections[0].landmarks;
+                const nose = landmarks.getNose();
+                const leftEye = landmarks.getLeftEye();
+                const rightEye = landmarks.getRightEye();
+
+                // Calculate horizontal gaze ratio directly from landmarks
+                // Note: face-api.js returns x, y coordinates
+                // Left Eye is actually on the right side of the image (mirror effect) usually, but points are labeled logically
+                // Let's use the distance from nose bridge to eyes
+
+                // Nose bridge top
+                const noseTop = nose[0];
+
+                // Average eye positions
+                const leftEyeCenter = {
+                    x: leftEye.reduce((acc, curr) => acc + curr.x, 0) / leftEye.length,
+                    y: leftEye.reduce((acc, curr) => acc + curr.y, 0) / leftEye.length
+                };
+                const rightEyeCenter = {
+                    x: rightEye.reduce((acc, curr) => acc + curr.x, 0) / rightEye.length,
+                    y: rightEye.reduce((acc, curr) => acc + curr.y, 0) / rightEye.length
+                };
+
+                // Distances
+                const distLeft = Math.abs(leftEyeCenter.x - noseTop.x);
+                const distRight = Math.abs(rightEyeCenter.x - noseTop.x);
+
+                // Ratio: If looking straight, ratio should be around 1.0
+                // If looking left (user's left), right eye is closer to nose in 2D projection
+                // Only if face turns significantly
+
+                let ratio = 1.0;
+                if (distRight > 0) {
+                    ratio = distLeft / distRight;
+                }
+
+                // Thresholds determined experimentally
+                // < 0.4 or > 2.5 usually indicates significant head turn
+                if (ratio < 0.4 || ratio > 2.5) {
+                    currentWarning = "Please look at the screen";
+                    violationType = "looking_away";
+                }
+            }
+
+            if (currentWarning) {
                 violationFramesRef.current += 1;
 
-                // Trigger warning on first detection
-                setShowWarning(true);
+                // Trigger warning immediately
+                setShowWarning(currentWarning);
                 setTimeout(() => setShowWarning(false), 2000);
 
-                // After 3 distinct violation events, disqualify
-                if (violationFramesRef.current >= 3) {
+                // After 3 seconds (approx 6 frames at 500ms interval) of continuous violation
+                if (violationFramesRef.current >= 6) {
                     const newViolationCount = violationCount + 1;
                     setViolationCount(newViolationCount);
                     violationFramesRef.current = 0;
@@ -88,7 +144,7 @@ const CameraProctor = ({ onDisqualify, onViolation, sessionId }) => {
                             body: JSON.stringify({
                                 session_id: sessionId,
                                 violation_count: newViolationCount,
-                                violation_type: 'multiple_faces'
+                                violation_type: violationType
                             })
                         });
                     } catch (err) {
@@ -103,7 +159,7 @@ const CameraProctor = ({ onDisqualify, onViolation, sessionId }) => {
                     }
                 }
             } else {
-                // Reset violation frame counter when only 1 or 0 faces
+                // Reset violation frame counter
                 violationFramesRef.current = 0;
             }
 
@@ -116,12 +172,15 @@ const CameraProctor = ({ onDisqualify, onViolation, sessionId }) => {
                 const ctx = canvasRef.current.getContext('2d');
                 ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
 
-                // Draw boxes with color based on face count
+                // Draw boxes with color based on status
                 resizedDetections.forEach(detection => {
-                    const box = detection.box;
-                    ctx.strokeStyle = faces > 1 ? '#ef4444' : '#10b981';
+                    const box = detection.detection.box; // Note: structure changes with landmarks
+                    ctx.strokeStyle = currentWarning ? '#ef4444' : '#10b981';
                     ctx.lineWidth = 2;
                     ctx.strokeRect(box.x, box.y, box.width, box.height);
+
+                    // Optional: Draw landmarks for debugging
+                    // faceapi.draw.drawFaceLandmarks(canvasRef.current, resizedDetections);
                 });
             }
         } catch (error) {
@@ -199,8 +258,11 @@ const CameraProctor = ({ onDisqualify, onViolation, sessionId }) => {
 
             {/* Warning overlay */}
             {showWarning && (
-                <div className="absolute inset-0 bg-red-500/30 flex items-center justify-center animate-pulse z-20">
-                    <span className="text-3xl">⚠️</span>
+                <div className="absolute inset-0 bg-red-500/30 flex flex-col items-center justify-center animate-pulse z-20 p-4 text-center">
+                    <span className="text-4xl mb-2">⚠️</span>
+                    <span className="text-white font-bold text-lg drop-shadow-md bg-black/50 px-3 py-1 rounded">
+                        {typeof showWarning === 'string' ? showWarning : 'Warning'}
+                    </span>
                 </div>
             )}
         </div>

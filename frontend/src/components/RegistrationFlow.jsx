@@ -6,7 +6,7 @@ const API_URL = 'http://localhost:8000';
 const RegistrationFlow = ({ onComplete }) => {
   const [step, setStep] = useState(1); // 1: Basic Info, 2: Competencies, 3: Skills, 4: Responsibilities
   const [loading, setLoading] = useState(false);
-  
+
   // Form data
   const [formData, setFormData] = useState({
     name: '',
@@ -31,14 +31,14 @@ const RegistrationFlow = ({ onComplete }) => {
       alert('Please fill in all required fields');
       return;
     }
-    
+
     setLoading(true);
     try {
       // Auto-generate competencies
       const response = await axios.post(`${API_URL}/generate_competencies`, {
         role: formData.role
       });
-      
+
       if (response.data.success && response.data.data.competencies) {
         setCompetencies(response.data.data.competencies.slice(0, 5));
       }
@@ -72,7 +72,7 @@ const RegistrationFlow = ({ onComplete }) => {
       const newSkills = [...technicalSkills];
       newSkills[index] = value;
       setTechnicalSkills(newSkills);
-      
+
       // Get suggestions
       if (value.length >= 2) {
         setActiveSuggestionField(`tech-${index}`);
@@ -96,7 +96,7 @@ const RegistrationFlow = ({ onComplete }) => {
       const newSkills = [...functionalSkills];
       newSkills[index] = value;
       setFunctionalSkills(newSkills);
-      
+
       // Get suggestions
       if (value.length >= 2) {
         setActiveSuggestionField(`func-${index}`);
@@ -137,12 +137,12 @@ const RegistrationFlow = ({ onComplete }) => {
   const handleSkillsNext = () => {
     const techFilled = technicalSkills.filter(s => s.trim()).length;
     const funcFilled = functionalSkills.filter(s => s.trim()).length;
-    
+
     if (techFilled < 5 || funcFilled < 5) {
       alert('Please fill in all 5 technical and 5 functional skills');
       return;
     }
-    
+
     setStep(4);
   };
 
@@ -194,13 +194,7 @@ const RegistrationFlow = ({ onComplete }) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 relative overflow-hidden">
-      {/* Animated background elements */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-pink-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-indigo-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
-      </div>
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
 
       <div className="w-full max-w-3xl relative z-10">
         {/* Progress Bar */}
@@ -213,7 +207,7 @@ const RegistrationFlow = ({ onComplete }) => {
             ))}
           </div>
           <div className="h-3 bg-white/10 backdrop-blur-sm rounded-full overflow-hidden shadow-lg">
-            <div 
+            <div
               className="h-full bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-400 transition-all duration-700 ease-out shadow-lg"
               style={{ width: `${(step / 4) * 100}%` }}
             />
@@ -231,8 +225,8 @@ const RegistrationFlow = ({ onComplete }) => {
                   AI Interview System v2.0
                 </h1>
                 <p className="text-gray-200 text-lg">Let's get started with your information</p>
-                <a 
-                  href="/admin.html" 
+                <a
+                  href="/admin.html"
                   target="_blank"
                   className="inline-block mt-3 text-sm text-emerald-300 hover:text-emerald-200 transition-colors font-medium"
                 >

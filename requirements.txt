@@ -1,13 +1,10 @@
-<<<<<<< HEAD
 streamlit
 google-generativeai
 streamlit-mic-recorder
 python-dotenv
 pandas
-=======
 streamlit
 google-generativeai
 streamlit-mic-recorder
 python-dotenv
 pandas
->>>>>>> 1624de87adc74f6f0547db9842acd2a6d76bbff7

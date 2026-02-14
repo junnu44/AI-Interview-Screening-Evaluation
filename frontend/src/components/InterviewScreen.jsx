@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import CameraProctor from './CameraProctor';
+import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 
 const InterviewScreen = ({
   sessionId,
@@ -16,13 +17,20 @@ const InterviewScreen = ({
   onViolation
 }) => {
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const [transcript, setTranscript] = useState('');
-  const [interimTranscript, setInterimTranscript] = useState('');
+  // const [isListening, setIsListening] = useState(false); // Use hook's listening
+  // const [transcript, setTranscript] = useState(''); // Use hook's transcript
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  const recognitionRef = useRef(null);
+  const [lastTranscript, setLastTranscript] = useState('');
+
   const silenceTimerRef = useRef(null);
+
+  const {
+    transcript,
+    listening,
+    resetTranscript,
+    browserSupportsSpeechRecognition,
+    isMicrophoneAvailable
+  } = useSpeechRecognition();
 
   // Text-to-Speech for questions
   useEffect(() => {
@@ -32,139 +40,72 @@ const InterviewScreen = ({
   }, [currentQuestion]);
 
   const speakQuestion = (text) => {
-    // Cancel any ongoing speech
-    window.speechSynthesis.cancel();
-    stopListening();
-    
-    setIsSpeaking(true);
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.9;
-    utterance.pitch = 1;
-    utterance.volume = 1;
-    
-    utterance.onend = () => {
-      setIsSpeaking(false);
-      // Automatically start listening after question is spoken
-      setTimeout(() => {
-        startListening();
-      }, 500);
-    };
-    
-    utterance.onerror = () => {
-      setIsSpeaking(false);
-    };
-    
-    window.speechSynthesis.speak(utterance);
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      SpeechRecognition.stopListening();
+
+      setIsSpeaking(true);
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 0.9;
+      utterance.pitch = 1;
+
+      utterance.onend = () => {
+        setIsSpeaking(false);
+        // Auto-start listening after question
+        setTimeout(() => {
+          handleStartListening();
+        }, 500);
+      };
+
+      utterance.onerror = () => {
+        setIsSpeaking(false);
+      };
+
+      window.speechSynthesis.speak(utterance);
+    }
   };
 
-  // Voice Recognition (Listening)
-  const startListening = () => {
-    if (isListening || isSpeaking) return;
+  // Silence Detection & Auto-Submit
+  useEffect(() => {
+    if (transcript && transcript !== lastTranscript) {
+      setLastTranscript(transcript);
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert('Speech recognition is not supported in your browser. Please use Chrome or Edge.');
-      return;
-    }
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+      }
 
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = 'en-US';
-    
-    recognition.onstart = () => {
-      setIsListening(true);
-      setTranscript('');
-      setInterimTranscript('');
-    };
-    
-    recognition.onresult = (event) => {
-      let interimText = '';
-      let finalText = '';
-      
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcriptPiece = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          finalText += transcriptPiece + ' ';
-        } else {
-          interimText += transcriptPiece;
+      // Auto-submit after 3 seconds of silence
+      silenceTimerRef.current = setTimeout(() => {
+        if (transcript.trim() && listening) {
+          handleStopListening(); // Stop and verify before submitting
+          handleAutoSubmit(transcript);
         }
-      }
-      
-      if (finalText) {
-        setTranscript(prev => {
-          const newTranscript = prev + finalText;
-          
-          // Reset silence timer
-          if (silenceTimerRef.current) {
-            clearTimeout(silenceTimerRef.current);
-          }
-          
-          // Auto-submit after 3 seconds of silence
-          silenceTimerRef.current = setTimeout(() => {
-            stopListening();
-            // Use the latest transcript value
-            if (newTranscript.trim()) {
-              handleAutoSubmit(newTranscript);
-            }
-          }, 3000);
-          
-          return newTranscript;
-        });
-        setInterimTranscript('');
-      } else {
-        setInterimTranscript(interimText);
-      }
-    };
-    
-    recognition.onerror = (event) => {
-      console.error('Speech recognition error:', event.error);
-      if (event.error === 'no-speech') {
-        // Don't restart, just stop
-        stopListening();
-      }
-    };
-    
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-    
-    try {
-      recognition.start();
-      recognitionRef.current = recognition;
-    } catch (error) {
-      console.error('Error starting recognition:', error);
-      alert('Could not start speech recognition. Please try again.');
+      }, 3000);
     }
+  }, [transcript, lastTranscript, listening]);
+
+  const handleStartListening = () => {
+    if (isSpeaking || isSubmitting) return;
+    resetTranscript();
+    setLastTranscript('');
+    SpeechRecognition.startListening({ continuous: true, language: 'en-US' });
   };
 
-  const stopListening = () => {
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch (e) {
-        console.error('Error stopping recognition:', e);
-      }
-      recognitionRef.current = null;
-    }
-    
+  const handleStopListening = () => {
+    SpeechRecognition.stopListening();
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
-      silenceTimerRef.current = null;
     }
-    
-    setIsListening(false);
   };
 
   const handleAutoSubmit = async (answer) => {
     if (!answer.trim() || isSubmitting) return;
 
     setIsSubmitting(true);
-    
+
     try {
-      await onSubmitAnswer(answer);
-      setTranscript('');
-      setInterimTranscript('');
+      await onSubmitAnswer(answer.trim());
+      resetTranscript();
     } catch (error) {
       console.error('Error submitting answer:', error);
     } finally {
@@ -176,20 +117,15 @@ const InterviewScreen = ({
     const fullAnswer = transcript.trim();
     if (!fullAnswer || isSubmitting) return;
 
-    stopListening();
+    handleStopListening();
     await handleAutoSubmit(fullAnswer);
-  };
-
-  const handleStopListening = () => {
-    stopListening();
-    // Don't auto-submit, let user review and manually submit
   };
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       window.speechSynthesis.cancel();
-      stopListening();
+      handleStopListening();
     };
   }, []);
 
@@ -207,7 +143,7 @@ const InterviewScreen = ({
 
   const getStatusMessage = () => {
     if (isSpeaking) return 'AI is speaking...';
-    if (isListening) return 'Listening to your answer...';
+    if (listening) return 'Listening to your answer...';
     if (isSubmitting) return 'Processing your answer...';
     return 'Tap to speak';
   };
@@ -270,11 +206,10 @@ const InterviewScreen = ({
           </div>
           <div className="w-full bg-white/10 rounded-full h-2 mt-3 overflow-hidden">
             <div
-              className={`h-2 rounded-full transition-all duration-700 shadow-lg ${
-                currentDifficulty < 40 ? 'bg-gradient-to-r from-green-400 to-emerald-500' :
-                currentDifficulty < 70 ? 'bg-gradient-to-r from-yellow-400 to-orange-500' : 
-                'bg-gradient-to-r from-red-400 to-pink-500'
-              }`}
+              className={`h-2 rounded-full transition-all duration-700 shadow-lg ${currentDifficulty < 40 ? 'bg-gradient-to-r from-green-400 to-emerald-500' :
+                currentDifficulty < 70 ? 'bg-gradient-to-r from-yellow-400 to-orange-500' :
+                  'bg-gradient-to-r from-red-400 to-pink-500'
+                }`}
               style={{ width: `${currentDifficulty}%` }}
             />
           </div>
@@ -360,11 +295,10 @@ const InterviewScreen = ({
                 className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`max-w-2xl rounded-lg p-4 ${
-                    msg.role === 'user'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-slate-800 text-gray-200 border border-slate-700'
-                  }`}
+                  className={`max-w-2xl rounded-lg p-4 ${msg.role === 'user'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-slate-800 text-gray-200 border border-slate-700'
+                    }`}
                 >
                   {msg.type === 'question' && (
                     <div className="text-xs text-gray-400 mb-1">{msg.category}</div>
@@ -374,10 +308,9 @@ const InterviewScreen = ({
                     <div className="mt-3 pt-3 border-t border-blue-500/30">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-medium">Score: {msg.evaluation.score}/100</span>
-                        <span className={`text-xs px-2 py-1 rounded ${
-                          msg.evaluation.quality === 'strong' ? 'bg-green-600' :
+                        <span className={`text-xs px-2 py-1 rounded ${msg.evaluation.quality === 'strong' ? 'bg-green-600' :
                           msg.evaluation.quality === 'partial' ? 'bg-yellow-600' : 'bg-red-600'
-                        }`}>
+                          }`}>
                           {msg.evaluation.quality}
                         </span>
                       </div>
@@ -390,6 +323,7 @@ const InterviewScreen = ({
           </div>
         </div>
 
+
         {/* Answer Input - Voice Assistant Style */}
         <div className="p-6 border-t border-white/10 bg-gradient-to-br from-slate-900/95 to-purple-900/95 backdrop-blur-xl">
           <div className="max-w-4xl mx-auto">
@@ -397,41 +331,40 @@ const InterviewScreen = ({
             <div className="text-center mb-6">
               <div className="relative inline-block">
                 <button
-                  onClick={isListening ? handleStopListening : startListening}
+                  onClick={listening ? handleStopListening : handleStartListening}
                   disabled={isSpeaking || isSubmitting}
-                  className={`w-40 h-40 rounded-full flex items-center justify-center text-7xl transition-all duration-500 shadow-2xl ${
-                    isListening 
-                      ? 'bg-gradient-to-br from-red-500 to-pink-500 animate-pulse shadow-red-500/50 scale-110' 
-                      : isSpeaking
+                  className={`w-40 h-40 rounded-full flex items-center justify-center text-7xl transition-all duration-500 shadow-2xl ${listening
+                    ? 'bg-gradient-to-br from-red-500 to-pink-500 animate-pulse shadow-red-500/50 scale-110'
+                    : isSpeaking
                       ? 'bg-gradient-to-br from-blue-500 to-cyan-500 animate-pulse shadow-blue-500/50'
                       : 'bg-gradient-to-br from-emerald-500 via-cyan-500 to-blue-500 hover:scale-110 shadow-emerald-500/50 animate-gradient'
-                  } disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100`}
+                    } disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100`}
                 >
-                  {isSpeaking ? '🔊' : isListening ? '🎤' : '🤖'}
+                  {isSpeaking ? '🔊' : listening ? '🎤' : '🤖'}
                 </button>
-                
-                {isListening && (
+
+                {listening && (
                   <>
                     <div className="absolute -inset-6 border-4 border-red-400 rounded-full animate-ping opacity-75"></div>
                     <div className="absolute -inset-3 border-2 border-pink-400 rounded-full animate-pulse"></div>
                   </>
                 )}
               </div>
-              
+
               <div className="mt-6">
                 <p className="text-2xl font-bold text-white mb-2">
                   {getStatusMessage()}
                 </p>
                 <p className="text-sm text-gray-300">
-                  {isListening ? 'Click button to stop, or keep speaking...' : 
-                   isSpeaking ? 'Please wait...' :
-                   'Click the button to start speaking'}
+                  {listening ? 'Click button to stop, or keep speaking...' :
+                    isSpeaking ? 'Please wait...' :
+                      'Click the button to start speaking'}
                 </p>
               </div>
             </div>
 
             {/* Live Transcript Display */}
-            {(transcript || interimTranscript) && (
+            {transcript && (
               <div className="bg-white/10 backdrop-blur-xl rounded-3xl p-6 mb-6 border border-white/20 shadow-2xl">
                 <div className="flex items-start gap-4">
                   <div className="text-3xl">💬</div>
@@ -439,10 +372,7 @@ const InterviewScreen = ({
                     <h3 className="text-sm font-bold text-emerald-400 mb-3">Your Answer:</h3>
                     <p className="text-white text-lg leading-relaxed">
                       {transcript}
-                      {interimTranscript && (
-                        <span className="text-gray-300 italic">{interimTranscript}</span>
-                      )}
-                      {isListening && <span className="inline-block w-1 h-6 bg-cyan-400 ml-1 animate-pulse"></span>}
+                      {listening && <span className="inline-block w-1 h-6 bg-cyan-400 ml-1 animate-pulse"></span>}
                     </p>
                   </div>
                 </div>
@@ -451,7 +381,7 @@ const InterviewScreen = ({
 
             {/* Action Buttons */}
             <div className="flex gap-4">
-              {transcript && !isListening && !isSpeaking && (
+              {transcript && !listening && !isSpeaking && (
                 <>
                   <button
                     onClick={handleManualSubmit}
@@ -469,9 +399,9 @@ const InterviewScreen = ({
                   </button>
                   <button
                     onClick={() => {
-                      setTranscript('');
-                      setInterimTranscript('');
-                      startListening();
+                      resetTranscript();
+                      setLastTranscript('');
+                      handleStartListening();
                     }}
                     className="px-8 py-4 bg-white/10 backdrop-blur-sm text-white font-bold rounded-xl hover:bg-white/20 transition-all duration-300 border border-white/20"
                   >
@@ -479,8 +409,8 @@ const InterviewScreen = ({
                   </button>
                 </>
               )}
-              
-              {!transcript && !isListening && !isSpeaking && (
+
+              {!transcript && !listening && !isSpeaking && (
                 <button
                   onClick={onSkipQuestion}
                   disabled={isSubmitting}
