@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from 'react';
 import axios from 'axios';
 import LandingPage from './components/LandingPage';
@@ -202,3 +201,4 @@ function App() {
 }
 
 export default App;
+
