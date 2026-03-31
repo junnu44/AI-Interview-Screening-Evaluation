@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import axios from 'axios';
 
-const API_URL = 'http://localhost:8000';
+const API_URL = 'https://ai-interview-screening-evaluation.onrender.com';
 
 const AdminLogin = ({ onLoginSuccess }) => {
   const [username, setUsername] = useState('');

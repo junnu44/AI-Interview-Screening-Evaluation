@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import axios from 'axios';
 
-const API_URL = 'http://localhost:8000';
+const API_URL = 'https://ai-interview-screening-evaluation.onrender.com';
 
 const RegistrationFlow = ({ onComplete }) => {
   const [step, setStep] = useState(1); // 1: Basic Info, 2: Competencies, 3: Skills, 4: Responsibilities

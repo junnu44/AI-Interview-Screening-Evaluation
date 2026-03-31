@@ -5,7 +5,7 @@ import InterviewScreen from './components/InterviewScreen';
 import CompletionScreen from './components/CompletionScreen';
 import DisqualifiedScreen from './components/DisqualifiedScreen';
 
-const API_URL = 'http://localhost:8000';
+const API_URL = 'https://ai-interview-screening-evaluation.onrender.com';
 
 function App() {
   const [step, setStep] = useState('registration'); // 'registration' | 'interview' | 'complete' | 'disqualified'

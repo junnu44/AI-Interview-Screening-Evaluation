@@ -16,7 +16,7 @@ const CandidateDetailModal = ({ candidateId, interviewId, onClose }) => {
         try {
             setLoading(true);
             const token = localStorage.getItem('adminToken');
-            const response = await axios.get(`http://localhost:8000/admin/interview/${interviewId}`, {
+            const response = await axios.get(`https://ai-interview-screening-evaluation.onrender.com/admin/interview/${interviewId}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
@@ -34,7 +34,7 @@ const CandidateDetailModal = ({ candidateId, interviewId, onClose }) => {
     const downloadReport = async () => {
         try {
             const token = localStorage.getItem('adminToken');
-            const response = await axios.get(`http://localhost:8000/admin/download_report/${interviewId}`, {
+            const response = await axios.get(`https://ai-interview-screening-evaluation.onrender.com/admin/download_report/${interviewId}`, {
                 headers: { 'Authorization': `Bearer ${token}` },
                 responseType: 'blob', // Important
             });
@@ -89,8 +89,8 @@ const CandidateDetailModal = ({ candidateId, interviewId, onClose }) => {
                             key={tab}
                             onClick={() => setActiveTab(tab)}
                             className={`flex-1 py-4 text-sm font-semibold uppercase tracking-wider transition-colors border-b-2 ${activeTab === tab
-                                    ? 'border-blue-500 text-blue-400 bg-blue-500/10'
-                                    : 'border-transparent text-gray-400 hover:text-white hover:bg-slate-800'
+                                ? 'border-blue-500 text-blue-400 bg-blue-500/10'
+                                : 'border-transparent text-gray-400 hover:text-white hover:bg-slate-800'
                                 }`}
                         >
                             {tab}
@@ -109,7 +109,7 @@ const CandidateDetailModal = ({ candidateId, interviewId, onClose }) => {
                                 <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
                                     <h3 className="text-sm font-semibold text-gray-400 mb-2">Interview Status</h3>
                                     <div className={`text-xl font-bold ${report.metadata.status === 'completed' ? 'text-green-400' :
-                                            report.metadata.status === 'failed' ? 'text-red-400' : 'text-yellow-400'
+                                        report.metadata.status === 'failed' ? 'text-red-400' : 'text-yellow-400'
                                         }`}>
                                         {report.metadata.status?.toUpperCase().replace('_', ' ')}
                                     </div>
@@ -117,7 +117,7 @@ const CandidateDetailModal = ({ candidateId, interviewId, onClose }) => {
                                 <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
                                     <h3 className="text-sm font-semibold text-gray-400 mb-2">Proctoring Status</h3>
                                     <div className={`text-xl font-bold ${report.metadata.proctoring_status === 'pass' ? 'text-green-400' :
-                                            report.metadata.proctoring_status === 'fail' ? 'text-red-400' : 'text-yellow-400'
+                                        report.metadata.proctoring_status === 'fail' ? 'text-red-400' : 'text-yellow-400'
                                         }`}>
                                         {report.metadata.proctoring_status?.toUpperCase() || 'N/A'}
                                     </div>
@@ -186,8 +186,8 @@ const CandidateDetailModal = ({ candidateId, interviewId, onClose }) => {
                                             <h3 className="text-lg font-medium text-white">{resp.question}</h3>
                                         </div>
                                         <div className={`px-3 py-1 rounded text-sm font-bold ${resp.quality === 'strong' ? 'bg-green-900 text-green-300' :
-                                                resp.quality === 'partial' ? 'bg-yellow-900 text-yellow-300' :
-                                                    'bg-red-900 text-red-300'
+                                            resp.quality === 'partial' ? 'bg-yellow-900 text-yellow-300' :
+                                                'bg-red-900 text-red-300'
                                             }`}>
                                             {resp.score}/100
                                         </div>

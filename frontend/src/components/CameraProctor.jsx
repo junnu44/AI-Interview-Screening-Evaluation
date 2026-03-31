@@ -160,7 +160,7 @@ const CameraProctor = ({ onDisqualify, onViolation, sessionId }) => {
                     if (onViolation) onViolation(newCount);
 
                     try {
-                        await fetch('http://localhost:8000/report_violation', {
+                        await fetch('https://ai-interview-screening-evaluation.onrender.com/report_violation', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
